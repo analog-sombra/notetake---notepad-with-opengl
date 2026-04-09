@@ -22,6 +22,11 @@ struct EditorState
     bool show_status_bar = true;
     float zoom_percent = 100.0f;
     std::size_t cursor_index = 0;
+    // Selection: sel_anchor == sel_cursor means no selection
+    std::size_t sel_anchor = 0;
+    std::size_t sel_cursor = 0;
+    float scroll_y = 0.0f; // vertical pixel scroll offset
     EditorMetrics metrics;
 };
 } // namespace notetake
+

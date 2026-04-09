@@ -3,113 +3,122 @@
 #include <GLFW/glfw3.h>
 #include <fmt/core.h>
 
-#include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
-
 #include "notetake/editor_state.h"
 #include "notetake/editor_ui.h"
+#include "notetake/glyph_atlas.h"
+#include "notetake/text_renderer.h"
 
-// automatic adjustment of window
-void framebuffer_size_callback(GLFWwindow *window, int width, int height);
-void processInput(GLFWwindow *window);
+static void framebuffer_size_callback(GLFWwindow* /*window*/, int width, int height)
+{
+    glViewport(0, 0, width, height);
+}
 
-int main(int argc, char *argv[])
+// Locate a system font that actually exists.
+static std::string find_font()
+{
+#ifdef _WIN32
+    const char* candidates[] = {
+        "C:/Windows/Fonts/consola.ttf",
+        "C:/Windows/Fonts/cour.ttf",
+        "C:/Windows/Fonts/arial.ttf",
+    };
+    for (const char* p : candidates)
+    {
+        FILE* f = fopen(p, "rb");
+        if (f) { fclose(f); return p; }
+    }
+#endif
+    return {};
+}
+
+int main(int argc, char* argv[])
 {
     (void)argc;
     (void)argv;
 
-    // Initialize GLFW
     if (!glfwInit())
     {
-        fmt::print("Failed to initialize GLFW");
+        fmt::print("Failed to initialize GLFW\n");
         return EXIT_FAILURE;
     }
 
-    notetake::EditorState editor_state;
-
-    // openGL version 3.3
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow *window = glfwCreateWindow(800, 600, "NoteTake", NULL, NULL);
-    if (window == NULL)
+    GLFWwindow* window = glfwCreateWindow(1024, 768, "NoteTake", nullptr, nullptr);
+    if (!window)
     {
         glfwTerminate();
-        fmt::print("Failed to create GLFW window");
+        fmt::print("Failed to create GLFW window\n");
         return EXIT_FAILURE;
     }
 
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
 
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)))
     {
-
-        fmt::print("Failed to initialize GLAD");
+        fmt::print("Failed to initialize GLAD\n");
         return EXIT_FAILURE;
     }
 
-    glViewport(0, 0, 800, 600);
-
+    int fb_w{}, fb_h{};
+    glfwGetFramebufferSize(window, &fb_w, &fb_h);
+    glViewport(0, 0, fb_w, fb_h);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-    // setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
-    (void)io;
+    // -------------------------------------------------------------------------
+    // Build font atlas
+    // -------------------------------------------------------------------------
+    const std::string font_path = find_font();
+    if (font_path.empty())
+    {
+        fmt::print("No suitable font found. Please put consola.ttf / arial.ttf in C:/Windows/Fonts/\n");
+        return EXIT_FAILURE;
+    }
 
-    // setup platform/renderer bindings
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init("#version 330");
+    notetake::GlyphAtlas atlas;
+    if (!atlas.build(font_path, 16))
+    {
+        fmt::print("Failed to build glyph atlas from '{}'\n", font_path);
+        return EXIT_FAILURE;
+    }
 
-    // setup style
-    ImGui::StyleColorsDark();
+    notetake::TextRenderer renderer;
+    if (!renderer.init(atlas))
+    {
+        fmt::print("Failed to initialise TextRenderer\n");
+        return EXIT_FAILURE;
+    }
 
+    notetake::EditorState editor_state;
+
+    notetake::editor_ui_install_callbacks(window, &editor_state);
+
+    // -------------------------------------------------------------------------
+    // Main loop
+    // -------------------------------------------------------------------------
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
 
-        // start Imgui frame
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
+        int w{}, h{};
+        glfwGetFramebufferSize(window, &w, &h);
+        glViewport(0, 0, w, h);
 
-        const notetake::EditorUiActions actions = notetake::render_editor_ui(editor_state);
-        if (actions.request_exit)
-        {
-            glfwSetWindowShouldClose(window, true);
-        }
-
-        processInput(window);
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClearColor(0.12f, 0.12f, 0.14f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // render Imgui
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        const notetake::EditorUiActions actions =
+            notetake::render_editor_ui(window, editor_state, renderer, atlas);
 
-        // send new frame to window
+        if (actions.request_exit)
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+
         glfwSwapBuffers(window);
     }
 
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
     glfwTerminate();
     return EXIT_SUCCESS;
-}
-
-void framebuffer_size_callback(GLFWwindow *window, int width, int height)
-{
-    glViewport(0, 0, width, height);
-}
-
-void processInput(GLFWwindow *window)
-{
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
 }
