@@ -1,0 +1,24 @@
+{
+  "name": "notetake",
+  "version": "1.0.0",
+  "description": "OpenGL project using GLFW, GLAD, and fmt libraries for modern C++ development",
+  "dependencies": [
+    {
+      "name": "fmt",
+      "$comment": "Modern C++ formatting library - provides fast, safe string formatting"
+    },
+    {
+      "name": "glfw3",
+      "$comment": "Cross-platform library for OpenGL window creation and input handling"
+    },
+    {
+      "name": "glad",
+      "$comment": "OpenGL function loader - loads OpenGL functions at runtime"
+    },
+    {
+      "name": "imgui",
+      "$comment": "Immediate Mode GUI library with GLFW and OpenGL3 bindings",
+      "features": ["glfw-binding", "opengl3-binding"]
+    }
+  ]
+}
