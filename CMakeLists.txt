@@ -50,7 +50,7 @@ FetchContent_MakeAvailable(imgui_backends)
 # Source Files Configuration
 # ============================================================================
 # Automatically find all .cpp files in your src/ directory
-file(GLOB_RECURSE USER_SOURCES 
+file(GLOB_RECURSE USER_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/src/*.cpp"
 )
 

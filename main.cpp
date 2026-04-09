@@ -2,15 +2,13 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <fmt/core.h>
-#include <string>
 
-#define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
-
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
-#include <imgui_internal.h>
-#include <imgui_stdlib.h>
+
+#include "notetake/editor_state.h"
+#include "notetake/editor_ui.h"
 
 // automatic adjustment of window
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
@@ -18,6 +16,9 @@ void processInput(GLFWwindow *window);
 
 int main(int argc, char *argv[])
 {
+    (void)argc;
+    (void)argv;
+
     // Initialize GLFW
     if (!glfwInit())
     {
@@ -25,7 +26,7 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    bool opened = true;
+    notetake::EditorState editor_state;
 
     // openGL version 3.3
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -42,6 +43,7 @@ int main(int argc, char *argv[])
     }
 
     glfwMakeContextCurrent(window);
+    glfwSwapInterval(1);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
@@ -69,30 +71,18 @@ int main(int argc, char *argv[])
 
     while (!glfwWindowShouldClose(window))
     {
-
         glfwPollEvents();
+
         // start Imgui frame
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // clear screen
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        // This is a dynamic text, limited by user raw
-        static std::string user_input = "";
-
-        // get the total size of the display
-        ImVec2 fullScreenSize = ImGui::GetIO().DisplaySize;
-        ImGui::SetNextWindowSize(fullScreenSize);
-        ImGui::SetNextWindowPos(ImVec2(0, 0));
-
-        // build Imgui ui
-        if (ImGui::Begin("##source1", &opened, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBackground))
+        const notetake::EditorUiActions actions = notetake::render_editor_ui(editor_state);
+        if (actions.request_exit)
         {
-            ImGui::InputTextMultiline("##input", &user_input, ImGui::GetContentRegionAvail(), ImGuiInputTextFlags_AllowTabInput);
+            glfwSetWindowShouldClose(window, true);
         }
-        ImGui::End();
 
         processInput(window);
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -104,9 +94,11 @@ int main(int argc, char *argv[])
 
         // send new frame to window
         glfwSwapBuffers(window);
-        glfwPollEvents();
     }
 
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
     glfwTerminate();
     return EXIT_SUCCESS;
 }
